@@ -20,6 +20,8 @@ import java.util.Scanner;
 import java.util.logging.ConsoleHandler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import dev.langchain4j.rag.query.transformer.CompressingQueryTransformer;
+import dev.langchain4j.rag.DefaultRetrievalAugmentor;
 
 public class RagNaif {
 
@@ -93,6 +95,15 @@ public class RagNaif {
                         .minScore(0.5)
                         .build();
 
+        var queryTransformer =
+                new CompressingQueryTransformer(model);
+
+        var retrievalAugmentor =
+                DefaultRetrievalAugmentor.builder()
+                        .queryTransformer(queryTransformer)
+                        .contentRetriever(retriever)
+                        .build();
+
         Assistant assistant =
                 AiServices.builder(Assistant.class)
                         .chatModel(model)
@@ -100,7 +111,7 @@ public class RagNaif {
                                 MessageWindowChatMemory
                                         .withMaxMessages(10)
                         )
-                        .contentRetriever(retriever)
+                        .retrievalAugmentor(retrievalAugmentor)
                         .build();
 
         System.out.println(
