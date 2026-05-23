@@ -17,11 +17,15 @@ import dev.langchain4j.model.googleai.GoogleAiGeminiChatModel;
 import dev.langchain4j.rag.content.retriever.EmbeddingStoreContentRetriever;
 import dev.langchain4j.service.AiServices;
 import java.util.Scanner;
+import java.util.logging.ConsoleHandler;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class RagNaif {
 
     public static void main(String[] args) {
 
+        configureLogger();
         // ===== Chargement du PDF =====
 
         Document document =
@@ -78,6 +82,7 @@ public class RagNaif {
                         .apiKey(llmKey)
                         .modelName("gemini-2.5-flash")
                         .temperature(0.2)
+                        .logRequestsAndResponses(true)
                         .build();
 
         EmbeddingStoreContentRetriever retriever =
@@ -143,6 +148,21 @@ public class RagNaif {
                 );
             }
         }
+    }
+
+    private static void configureLogger() {
+
+        Logger packageLogger =
+                Logger.getLogger("dev.langchain4j");
+
+        packageLogger.setLevel(Level.FINE);
+
+        ConsoleHandler handler =
+                new ConsoleHandler();
+
+        handler.setLevel(Level.FINE);
+
+        packageLogger.addHandler(handler);
     }
 }
 
