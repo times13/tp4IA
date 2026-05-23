@@ -3,36 +3,31 @@ package ht.fds.mbds.alfred;
 import dev.langchain4j.data.document.Document;
 import dev.langchain4j.data.document.loader.ClassPathDocumentLoader;
 import dev.langchain4j.data.document.parser.apache.tika.ApacheTikaDocumentParser;
-
 import dev.langchain4j.data.document.splitter.DocumentSplitters;
-
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;
-
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
-
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.embedding.onnx.allminilml6v2.AllMiniLmL6V2EmbeddingModel;
 import dev.langchain4j.model.googleai.GoogleAiGeminiChatModel;
-
-import dev.langchain4j.rag.content.retriever.ContentRetriever;
-import dev.langchain4j.rag.content.retriever.EmbeddingStoreContentRetriever;
-
-import dev.langchain4j.rag.query.router.LanguageModelQueryRouter;
-import dev.langchain4j.rag.query.router.QueryRouter;
-
 import dev.langchain4j.rag.DefaultRetrievalAugmentor;
 import dev.langchain4j.rag.RetrievalAugmentor;
-
+import dev.langchain4j.rag.content.retriever.ContentRetriever;
+import dev.langchain4j.rag.content.retriever.EmbeddingStoreContentRetriever;
+import dev.langchain4j.rag.query.router.QueryRouter;
 import dev.langchain4j.service.AiServices;
-
 import dev.langchain4j.store.embedding.EmbeddingStore;
 import dev.langchain4j.store.embedding.inmemory.InMemoryEmbeddingStore;
+import java.util.List;
+import java.util.Map;
+import java.util.Scanner;
+import dev.langchain4j.model.input.Prompt;
+import dev.langchain4j.model.input.PromptTemplate;
+import dev.langchain4j.rag.query.Query;
+import java.util.Collections;
 
-import java.util.*;
-
-public class TestRoutage {
+public class Test5SangRag {
 
     public static void main(String[] args) {
 
@@ -51,13 +46,11 @@ public class TestRoutage {
         EmbeddingStore<TextSegment> storeIA =
                 creerEmbeddingStore("rag.pdf");
 
-        EmbeddingStore<TextSegment> storeAutre =
-                creerEmbeddingStore("cours_intro_reseaux.pdf");
-
         // ===== PHASE 2 =====
 
-        ContentRetriever retrieverIA =
-                EmbeddingStoreContentRetriever.builder()
+        ContentRetriever contentRetriever =
+                EmbeddingStoreContentRetriever
+                        .builder()
                         .embeddingStore(storeIA)
                         .embeddingModel(
                                 new AllMiniLmL6V2EmbeddingModel()
@@ -67,47 +60,81 @@ public class TestRoutage {
                         .build();
 
 
-        ContentRetriever retrieverAutre =
-                EmbeddingStoreContentRetriever.builder()
-                        .embeddingStore(storeAutre)
-                        .embeddingModel(
-                                new AllMiniLmL6V2EmbeddingModel()
-                        )
-                        .maxResults(2)
-                        .minScore(0.5)
-                        .build();
-
-
-
-        Map<ContentRetriever,String> descriptions =
-                new HashMap<>();
-
-        descriptions.put(
-                retrieverIA,
-                "Support de cours sur l'intelligence artificielle, RAG et fine-tuning"
-        );
-
-        descriptions.put(
-                retrieverAutre,
-                "Support de cours sur les réseaux informatiques, protocoles réseau, services réseau et architecture des réseaux"
-        );
-
+// ===== QueryRouter personnalisé =====
 
         QueryRouter queryRouter =
-                new LanguageModelQueryRouter(
-                        model,
-                        descriptions
-                );
+                new QueryRouter() {
 
+                    @Override
+                    public List<ContentRetriever>
+                    route(Query query) {
+
+                        PromptTemplate template =
+                                PromptTemplate.from(
+                                        """
+                                        Est-ce que la requête '{{question}}'
+                                        porte sur le RAG ou le Fine-Tuning ?
+                
+                                        Réponds seulement par :
+                                        oui
+                                        non
+                                        peut-être
+                                        """
+                                );
+
+                        Prompt prompt =
+                                template.apply(
+                                        Map.of(
+                                                "question",
+                                                query.text()
+                                        )
+                                );
+
+                        String reponse =
+                                model.chat(
+                                        prompt.text()
+                                );
+
+                        System.out.println(
+                                "Décision : "
+                                        + reponse
+                        );
+
+                        if(reponse
+                                .toLowerCase()
+                                .contains("non")){
+
+                            // pas de RAG
+                            return Collections.emptyList();
+
+                        }
+
+                        return Collections
+                                .singletonList(
+                                        contentRetriever
+                                );
+                    }
+                };
+
+
+// ===== RetrievalAugmentor =====
 
         RetrievalAugmentor retrievalAugmentor =
-                DefaultRetrievalAugmentor.builder()
-                        .queryRouter(queryRouter)
+                DefaultRetrievalAugmentor
+                        .builder()
+                        .queryRouter(
+                                queryRouter
+                        )
                         .build();
 
 
+// ===== Assistant =====
+
         Assistant assistant =
-                AiServices.builder(Assistant.class)
+                AiServices
+                        .builder(
+                                Assistant.class
+                        )
                         .chatModel(model)
                         .chatMemory(
                                 MessageWindowChatMemory
@@ -118,8 +145,9 @@ public class TestRoutage {
                         )
                         .build();
 
-
-        conversationAvec(assistant);
+        conversationAvec(
+                assistant
+        );
 
     }
 
