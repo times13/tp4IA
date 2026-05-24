@@ -114,11 +114,11 @@ public class RagNaif {
                         .retrievalAugmentor(retrievalAugmentor)
                         .build();
 
-        System.out.println(
+    /*    System.out.println(
                 assistant.chat(
                         "Quelle est la signification de RAG ; à quoi ça sert ?"
                 )
-        );
+        );*/
 
         conversationAvec(assistant);
     }
